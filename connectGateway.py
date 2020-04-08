@@ -1,9 +1,11 @@
 #!/usr/bin/python
-
-import paho.mqtt.client as mqtt
-import time
-import ssl
-from sense_hat import SenseHat
+try:
+    import paho.mqtt.client as mqtt
+    import time
+    import ssl
+    from sense_hat import SenseHat
+except ImportError:
+    print("There was an import error, please check.")
 
 sense = SenseHat()
 
@@ -21,10 +23,10 @@ def on_connect (client, userdata, flags, rc):
     # With Paho, always subscribe at on_connect (if you want to
     # subscribe) to ensure you resubscribe if connection is
     # lost.
-    client.subscribe("hub-asri84368/sideRoad")
-    client.subscribe("hub-asri84368/mainRoad1")
-    client.subscribe("hub-asri84368/mainRoad2")
-    client.subscribe("hub-asri84368/isSpace")
+##    client.subscribe("hub-asri84368/sideRoad")
+##    client.subscribe("hub-asri84368/mainRoad1")
+##    client.subscribe("hub-asri84368/mainRoad2")
+##    client.subscribe("hub-asri84368/isSpace")
 
     if rc == 0:
         client.connected_flag = True
@@ -71,105 +73,113 @@ s_road_max_time = 120;
 s_road_start_time = 0;
 
 #variables to time limit adapted system behavior
-mod_max_time = 60;
+mod_max_time = 10;
 mod_start_time = 0;
 
 def getJoystickDirection():
-    while True: #waiting for min one released event
-           event = sense.stick.wait_for_event(emptybuffer=True)
-           if event.action != "released": #necessary to ignore pressed event action
-               break
-    print(event)
-    print(event.direction)
-    return event.direction
+        while True: #waiting for min one released event
+               event = sense.stick.wait_for_event(emptybuffer=True)
+               if event.action != "released": #necessary to ignore pressed event action
+                   break
+        return event.direction
 
 def setSideRoad():
-    print("Please indicate side road value using joystick, True:move right then press, False: move to any direction but right then press\n")
+    print("Please indicate side road value using joystick, right=True, anything else=False\n")
     global sideRoad
     sideRoad = (getJoystickDirection() == "right")
-    print("The value you indicated is" + str(sideRoad))
-    
-def setIsSpace():
-    print("Please enter the space value\n")
-    global isSpace
-    isSpace = getJoystickDirection() == "right"
     global s_road_start_time
     global s_road_max_time
+    global numOfSideRoadTrue
     if isSpace ==True:
         if (time.time()-s_road_start_time)<s_road_max_time:
             numOfSideRoadTrue+=1;
         else:
             numOfSideRoadTrue=0;
-    print("The value you indicated is" + str(isSpace))
-    if numOfSideRoadTrue<10:
+    print("The value you indicated is " + str(sideRoad) + "\n")
+    if numOfSideRoadTrue>=2:
         while time.time()-mod_start_time<mod_max_time:
             modified_behavior()
+    
+def setIsSpace():
+    print("Please indicate the space value using the joystick right=True, anything else:false\n")
+    global isSpace
+    isSpace = getJoystickDirection() == "right"
+    print("The value you indicated is " + str(isSpace) + "\n")
 
 #adapted behavior keeps side road lamps green for 1 min no matter the side road sensor
 def modified_behavior():
-    while isSpace == True:
-        check_main_road()
+    global mod_start_time
+    global mod_max_time
+    while  (time.time()-s_road_start_time)<s_road_max_time:
         setIsSpace()
-            
+        if isSpace == True:
+            check_main_road()
+        else:
+            reset()
+                     
 def setMainRoad1():
     print("Please indicate main road 1 value\n")
     global mainRoad1
     mainRoad1 = getJoystickDirection() == "right"
-    print("The value you indicated is" + str(mainRoad1))
+    print("The value you indicated is " + str(mainRoad1) + "\n")
     
 def setMainRoad2():
     print("Please indicate main road 2 value\n")
     global mainRoad2
     mainRoad2 = getJoystickDirection() == "right"
-    print("The value you indicated is" + str(mainRoad2))
+    print("The value you indicated is " + str(mainRoad2) + "\n")
 
 def check_main_road():
     setMainRoad1()
     if mainRoad1 == True:
         ret = client.publish ("hub-asri84368/mainRoad1", "red")
-        print ("MainRoad1 set to red")
+        print ("MainRoad1 set to red\n")
     setMainRoad2()
     if mainRoad2 == True:
         ret = client.publish ("hub-asri84368/mainRoad1", "red")
-        print ("MainRoad2 set to red")
+        print ("MainRoad2 set to red\n")
     ret = client.publish ("hub-asri84368/sideRoad", "green")
-    print ("SideRoad set to green")
+    print ("SideRoad set to green\n")
 
 def reset():
     ret = client.publish ("hub-asri84368/mainRoad1", "green")
-    print ("MainRoad1 set to green")
+    print ("MainRoad1 set to green\n")
     ret = client.publish ("hub-asri84368/mainRoad2", "green")
-    print ("MainRoad2 set to green")
+    print ("MainRoad2 set to green\n")
     ret = client.publish ("hub-asri84368/sideRoad", "red")
-    print ("SideRoad set to red")
+    print ("SideRoad set to red\n")
     
 #initialise lamps    
 reset()
 
-#initialise variables
+#initialise variables for while cycles and time restriction on side road value recording
 setSideRoad()
 setIsSpace()
 s_road_start_time = time.time()
 
 while True:
-    if sideRoad == True:
-        while isSpace != True:
-            setIsSpace()
-        while sideRoad == True:           
-            while isSpace == True:
+    try:
+        if sideRoad == True:
+            if isSpace == True:
                 check_main_road()
-                setIsSpace()
-                setSideRoad()
-                if sideRoad == False:
-                    break;
-            setIsSpace()
-            setSideRoad()
-    else:
-        reset()             
-    setSideRoad()
-    setIsSpace()
-    client.loop()
+
+        else:
+            reset()
+        
+        setSideRoad()
+        setIsSpace()
+        #retains connection with MQTT Broker
+        client.loop()
+
+    except KeyboardInterrupt:
+        print("Simulation exited. Connection is about to be closed.\n")
+    except NameError:
+        print("A local or global name is not found.\n")
+    except SystemExit:
+        print("Fatal error. sys.exit() was called.Traceback:\n")
+
+#exit infinite while loop and close connection
+client.disconnect ()
     
 
-# close connection
-client.disconnect ()
+
