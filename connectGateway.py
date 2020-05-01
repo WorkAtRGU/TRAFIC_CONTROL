@@ -4,6 +4,7 @@ try:
     import time
     import ssl
     import sys
+    import json
     from sense_hat import SenseHat
 except ImportError:
     print("There was an import error, please check.")
@@ -63,11 +64,11 @@ mainRoad2 = False;
 
 #variables for monitoring frequency of the queue becoming long over 1 min
 numOfSideRoadTrue = 0;
-s_road_max_time = 60;
+s_road_max_time = 5;
 s_road_start_time = time.time();
 
 #variables to time limit adapted system behavior
-mod_max_time = 30;
+mod_max_time = 5;
 mod_start_time = time.time();
 
 #function to wait for joystick event and capture and return the direction of the released event
@@ -83,7 +84,7 @@ def getJoystickDirection():
 
 #function to set the sideRoad variable, record the # of True values, initiate modified behavior if treshhold is exceeded
 def setSideRoad():
-    print("Please indicate side road value using joystick, right=True, anything else=False\n")
+    print("Please indicate whether the side road queue is long using joystick, right=True, anything else=False\n")
     global sideRoad
     sideRoad = (getJoystickDirection() == "right")
     global s_road_start_time
@@ -99,37 +100,36 @@ def setSideRoad():
     if numOfSideRoadTrue >= 1:
         #tells the user that modified behavior started
         print("Modified behavior started.\n")
+        mod_start_time = time.time()
         while time.time() - mod_start_time < mod_max_time:
             modified_behavior()
+        print("Modified behavior stops.\n")
 
 #adapted behavior keeps side road lamps green for 1 min no matter the side road sensor
 def modified_behavior():
-    global mod_start_time
-    global mod_max_time
-    while  time.time() - s_road_start_time < s_road_max_time:
-        setIsSpace()
-        if isSpace == True:
-            check_main_road()
-        else:
-            reset()
-    print("Modified behavior stops.\n")
+    setIsSpace()
+    if isSpace == True:
+        check_main_road()
+    else:
+        reset()
+    
 
 #function to set the isSpace variable  
 def setIsSpace():
-    print("Please indicate the space value using the joystick right=True, anything else:false\n")
+    print("Please indicate whether there is enough space on the main road to join\n")
     global isSpace
     isSpace = getJoystickDirection() == "right"
     print("The value you indicated is " + str(isSpace) + "\n")
     
 #functions to set mainRoad1 and mainRoad2 variables
 def setMainRoad1():
-    print("Please indicate main road 1 value\n")
+    print("Please indicate whether there is a car approaching main road further side\n")
     global mainRoad1
     mainRoad1 = getJoystickDirection() == "right"
     print("The value you indicated is " + str(mainRoad1) + "\n")
     
 def setMainRoad2():
-    print("Please indicate main road 2 value\n")
+    print("Please indicate whether there is a car approaching main road closer side\n")
     global mainRoad2
     mainRoad2 = getJoystickDirection() == "right"
     print("The value you indicated is " + str(mainRoad2) + "\n")
@@ -138,22 +138,26 @@ def setMainRoad2():
 def check_main_road():
     setMainRoad1()
     if mainRoad1 == True:
-        ret = client.publish ("hub-asri84368/mainRoad1", "{'light':'red'}")
+        print("Publishing")
+        ret = client.publish ("hub-asri84368/mainRoad1", json.dumps({"light":"red"}))
         print ("MainRoad1 set to red.\n")
     setMainRoad2()
     if mainRoad2 == True:
-        ret = client.publish ("hub-asri84368/mainRoad1", "{'light':'red'}")
+        print("Publishing")
+        ret = client.publish ("hub-asri84368/mainRoad1", json.dumps({"light":"red"}))
         print ("MainRoad2 set to red\n")
-    ret = client.publish ("hub-asri84368/sideRoad", "{'light':'green'}")
+    print("Publishing")
+    ret = client.publish ("hub-asri84368/sideRoad", json.dumps({"light":"green"}))
     print ("SideRoad set to green.\n")
 
 #function to reset all lamps, main roads to green, side road to red
 def reset():
-    ret = client.publish ("hub-asri84368/mainRoad1", "{'light':'green'}")
+    print("Publishing")
+    ret = client.publish ("hub-asri84368/mainRoad1", json.dumps({"light":"green"}))
     print ("MainRoad1 set to green.\n")
-    ret = client.publish ("hub-asri84368/mainRoad2", "{'light':'green'}")
+    ret = client.publish ("hub-asri84368/mainRoad2", json.dumps({"light":"green"}))
     print ("MainRoad2 set to green.\n")
-    ret = client.publish ("hub-asri84368/sideRoad", "{'light':'red'}")
+    ret = client.publish ("hub-asri84368/sideRoad", json.dumps({"light":"red"}))
     print ("SideRoad set to red.\n")
     
 #initialise lamps with reset()    
