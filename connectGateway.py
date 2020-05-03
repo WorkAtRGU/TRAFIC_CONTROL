@@ -139,26 +139,37 @@ def check_main_road():
     setMainRoad1()
     if mainRoad1 == True:
         print("Publishing")
-        ret = client.publish ("hub-asri84368/mainRoad1", json.dumps({"light":"red"}))
+        ret = client.publish ("hub-asri84368/mainRoad1", json.dumps(generate_message("red")), retain = True)
         print ("MainRoad1 set to red.\n")
     setMainRoad2()
     if mainRoad2 == True:
         print("Publishing")
-        ret = client.publish ("hub-asri84368/mainRoad1", json.dumps({"light":"red"}))
+        ret = client.publish ("hub-asri84368/mainRoad1", json.dumps(generate_message("red")), retain = True)
         print ("MainRoad2 set to red\n")
     print("Publishing")
-    ret = client.publish ("hub-asri84368/sideRoad", json.dumps({"light":"green"}))
+    ret = client.publish ("hub-asri84368/sideRoad", json.dumps(generate_message("green")), retain = True)
     print ("SideRoad set to green.\n")
 
 #function to reset all lamps, main roads to green, side road to red
 def reset():
     print("Publishing")
-    ret = client.publish ("hub-asri84368/mainRoad1", json.dumps({"light":"green"}))
+    ret = client.publish ("hub-asri84368/mainRoad1", json.dumps(generate_message("green")), retain = True)
     print ("MainRoad1 set to green.\n")
-    ret = client.publish ("hub-asri84368/mainRoad2", json.dumps({"light":"green"}))
+    ret = client.publish ("hub-asri84368/mainRoad2", json.dumps(generate_message("green")), retain = True)
     print ("MainRoad2 set to green.\n")
-    ret = client.publish ("hub-asri84368/sideRoad", json.dumps({"light":"red"}))
+    ret = client.publish ("hub-asri84368/sideRoad", json.dumps(generate_message("red")), retain = True)
     print ("SideRoad set to red.\n")
+
+def generate_message(color):
+    message = {"CalculatedByController":"Controller One",
+            "featureOfInterest": "Junction One",
+            "property": "state", 
+            "publishTime": time.time(), 
+            "status": "active",
+            "hasResult": {
+                    "value": str(color)
+                        }}
+    return message
     
 #initialise lamps with reset()    
 reset()
