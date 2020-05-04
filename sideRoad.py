@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import paho.mqtt.client as mqtt
-import re
 import time
 import ssl
 import json
@@ -18,7 +17,10 @@ sense=SenseHat()
 
 #Setting up traffic light colors
 green=(0,255,0) 
-red=(255,0,0) 
+red=(255,0,0)
+
+#to handle not new messages store the time of the latest
+latestMessageTime = time.time()
 
 #Parse and react to message
 def on_message(client, userdata, msg):
@@ -27,18 +29,24 @@ def on_message(client, userdata, msg):
 
     #parse the JSON control data
     control = json.loads(jsonStr)
-    print(str(control))
     junction = control["featureOfInterest"]
+    publishTime = control["publishTime"]
+    status = control["status"]
 
-    #If control data is for this junction, react
-    if str(junction) == "Junction One":   
+    #Print all messages received
+    print(str(control))
+
+    #If control data is for this junction and this is a new, active message, turn light
+    if str(junction) == "Junction One" and publishTime > latestMessageTime and status == "active":
+        global latestMessageTime
+        latestMessageTime = publishTime
         result = control["hasResult"]
-        print(str(result))
         color = result["value"]
-        print(str(color))
+        
         #If control data is red, turn LED red
         if str(color) == "red":
             sense.clear((red))
+            
         #Else turn LED green
         else:
             sense.clear((green))
@@ -47,16 +55,14 @@ def on_connect (client, userdata, flags, rc):
     """ Callback called when connection/reconnection is detected """
     print ("Connect %s result is: %s" % (host, rc))
 
-    
     if rc == 0:
         client.connected_flag = True
         print ("connected OK")
+        client.subscribe("hub-asri84368/sideRoad")
         return
     
     print ("Failed to connect to %s, error was, rc=%s" % rc)
-    # handle error here
-    sys.exit (-1)
-    
+    sys.exit (-1)   
 
 # Define clientId, host, user and password
 client = mqtt.Client (client_id = client_id, clean_session = clean_session)
@@ -79,9 +85,8 @@ while not client.connected_flag:           #wait in loop
     client.loop()
     time.sleep (1)
 
-
+#Clearing senseHat at first
 sense.clear()
-client.subscribe("hub-asri84368/sideRoad")
 
 try:
     while True:
@@ -89,3 +94,4 @@ try:
 except KeyboardInterrupt:
     client.disconnect()
     client.loop_stop()
+    print("Connection is closed.")

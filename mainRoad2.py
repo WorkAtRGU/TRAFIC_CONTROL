@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import paho.mqtt.client as mqtt
-import re
 import time
 import ssl
 import json
@@ -10,7 +9,7 @@ from sense_hat import SenseHat
 host          = "node02.myqtthub.com"
 port          = 8883
 clean_session = True
-client_id     = "Raspberry1MainRoad1"
+client_id     = "Raspberry2MainRoad2"
 user_name     = "asri84368"
 password      = "1YRdhAnN-MfoxC9Yt"
 
@@ -18,30 +17,41 @@ sense=SenseHat()
 
 #Setting up traffic light colors
 green=(0,255,0) 
-red=(255,0,0) 
+red=(255,0,0)
+
+#to handle not new messages store the time of the latest
+latestMessageTime = time.time()
 
 #Parse and react to message
 def on_message(client, userdata, msg):
     
     jsonStr = str(msg.payload.decode("UTF-8"))
-    print("Message recieved=>" + jsonStr)
-
+    
     #parse the JSON control data
     control = json.loads(jsonStr)
     junction = control["featureOfInterest"]
+    publishTime = control["publishTime"]
+    status = control["status"]
 
-    #If control data is for this junction, react
-    if str(junction) == "Junction One":   
+    #Print all messages recieved
+    print(str(control))
+
+    #If control data is for this junction and the message is new, react
+    if str(junction) == "Junction One" and publishTime > latestMessageTime and str(status) == "active":   
+
+        #Store the publish time as latest message time
+        global latestMessageTime
+        latestMessageTime = publishTime
         result = control["hasResult"]
         color = result["value"]
+
         #If control data is red, turn LED red
         if str(color) == "red":
             sense.clear((red))
+
         #Else turn LED green
         else:
             sense.clear((green))
-
-
 
 def on_connect (client, userdata, flags, rc):
     """ Callback called when connection/reconnection is detected """
@@ -50,10 +60,12 @@ def on_connect (client, userdata, flags, rc):
     if rc == 0:
         client.connected_flag = True
         print ("connected OK")
+
+        #Subscribing every on connect
+        client.subscribe("hub-asri84368/mainRoad2")
         return
     
     print ("Failed to connect to %s, error was, rc=%s" % rc)
-    # handle error here
     sys.exit (-1)
 
 # Define clientId, host, user and password
@@ -77,9 +89,8 @@ while not client.connected_flag:           #wait in loop
     client.loop()
     time.sleep (1)
 
-
+#Clearing senseHat first
 sense.clear()
-client.subscribe("hub-asri84368/mainRoad2")
 
 try:
     while True:
@@ -87,4 +98,5 @@ try:
 except KeyboardInterrupt:
     client.disconnect()
     client.loop_stop()
+    print("Connection closed.")
 

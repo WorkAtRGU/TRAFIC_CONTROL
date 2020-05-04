@@ -26,6 +26,7 @@ def on_connect (client, userdata, flags, rc):
         client.connected_flag = True
         print ("connected OK")
         return
+    
     #in case of error print error value and exit
     print ("Failed to connect to %s, error was, rc=%s" % rc)
     sys.exit (-1)
@@ -73,10 +74,13 @@ mod_start_time = time.time();
 
 #function to wait for joystick event and capture and return the direction of the released event
 def getJoystickDirection():
+
         #waiting for minimum one released event
         while True:
+
             #emptyBuffer=True is used to get rid of events generated before waiting starts
             event = sense.stick.wait_for_event(emptybuffer=True)
+
             #necessary to ignore pressed or released event action not to duplicate trigerred actions
             if event.action != "released": 
                 break
@@ -84,25 +88,43 @@ def getJoystickDirection():
 
 #function to set the sideRoad variable, record the # of True values, initiate modified behavior if treshhold is exceeded
 def setSideRoad():
+
+    #Giving instructions to user
     print("Please indicate whether the side road queue is long using joystick, right=True, anything else=False\n")
+
+    #Store side road value
     global sideRoad
     sideRoad = (getJoystickDirection() == "right")
+
+    #Using global variables to record side road values
     global s_road_start_time
     global s_road_max_time
     global numOfSideRoadTrue
-    if isSpace == True:
+
+    #Recording side road value if within time
+    if sideRoad == True:
         if time.time() - s_road_start_time < s_road_max_time:
             numOfSideRoadTrue += 1;
+
+        #If outside time frame, restart clock, reset counter
         else:
             numOfSideRoadTrue = 0;
             s_road_start_time = time.time()
+
+    #Checks whether side road value true counter exceeds treshhold
     print("The value you indicated is " + str(sideRoad) + "\n")
     if numOfSideRoadTrue >= 1:
+
         #tells the user that modified behavior started
         print("Modified behavior started.\n")
+
+        #Set start time to now
         mod_start_time = time.time()
+
+        #run modified behavior in loop until time is up
         while time.time() - mod_start_time < mod_max_time:
             modified_behavior()
+
         print("Modified behavior stops.\n")
 
 #adapted behavior keeps side road lamps green for 1 min no matter the side road sensor
@@ -111,13 +133,14 @@ def modified_behavior():
     if isSpace == True:
         check_main_road()
     else:
-        reset()
-    
+        reset()  
 
 #function to set the isSpace variable  
 def setIsSpace():
     print("Please indicate whether there is enough space on the main road to join\n")
     global isSpace
+
+    #Convert joystick data to true false values and store
     isSpace = getJoystickDirection() == "right"
     print("The value you indicated is " + str(isSpace) + "\n")
     
@@ -125,41 +148,52 @@ def setIsSpace():
 def setMainRoad1():
     print("Please indicate whether there is a car approaching main road further side\n")
     global mainRoad1
+
+    #Convert joystick data to true false values and store
     mainRoad1 = getJoystickDirection() == "right"
     print("The value you indicated is " + str(mainRoad1) + "\n")
     
 def setMainRoad2():
     print("Please indicate whether there is a car approaching main road closer side\n")
     global mainRoad2
+
+    #Convert joystick data to true false values and store
     mainRoad2 = getJoystickDirection() == "right"
     print("The value you indicated is " + str(mainRoad2) + "\n")
 
 #function to publish data according to user input
 def check_main_road():
     setMainRoad1()
+
+    #If there are cars approaching the main road, turn light red
     if mainRoad1 == True:
         print("Publishing")
-        ret = client.publish ("hub-asri84368/mainRoad1", json.dumps(generate_message("red")), retain = True)
+        ret = client.publish ("hub-asri84368/mainRoad1", json.dumps(generate_message("red")), retain = False, qos = 1)
         print ("MainRoad1 set to red.\n")
     setMainRoad2()
+    
+    #If there are cars approaching the main road, turn light red
     if mainRoad2 == True:
         print("Publishing")
-        ret = client.publish ("hub-asri84368/mainRoad1", json.dumps(generate_message("red")), retain = True)
-        print ("MainRoad2 set to red\n")
+        ret = client.publish ("hub-asri84368/mainRoad2", json.dumps(generate_message("red")), retain = False, qos = 1)
+        print ("MainRoad2 set to red.\n")
+
+    #Turn the side road green after cars on main road are stopped or there were no cars
     print("Publishing")
-    ret = client.publish ("hub-asri84368/sideRoad", json.dumps(generate_message("green")), retain = True)
+    ret = client.publish ("hub-asri84368/sideRoad", json.dumps(generate_message("green")), retain = False, qos = 1)
     print ("SideRoad set to green.\n")
 
 #function to reset all lamps, main roads to green, side road to red
 def reset():
     print("Publishing")
-    ret = client.publish ("hub-asri84368/mainRoad1", json.dumps(generate_message("green")), retain = True)
+    ret = client.publish ("hub-asri84368/mainRoad1", json.dumps(generate_message("green")), retain = False, qos = 1)
     print ("MainRoad1 set to green.\n")
-    ret = client.publish ("hub-asri84368/mainRoad2", json.dumps(generate_message("green")), retain = True)
+    ret = client.publish ("hub-asri84368/mainRoad2", json.dumps(generate_message("green")), retain = False, qos = 1)
     print ("MainRoad2 set to green.\n")
-    ret = client.publish ("hub-asri84368/sideRoad", json.dumps(generate_message("red")), retain = True)
+    ret = client.publish ("hub-asri84368/sideRoad", json.dumps(generate_message("red")), retain = False, qos = 1)
     print ("SideRoad set to red.\n")
 
+#Generates message to publish with publishTime now and a light state given in parameter
 def generate_message(color):
     message = {"CalculatedByController":"Controller One",
             "featureOfInterest": "Junction One",
@@ -171,7 +205,7 @@ def generate_message(color):
                         }}
     return message
     
-#initialise lamps with reset()    
+#initialise lamps
 reset()
 
 #initialise variables for while cycles and time restriction on side road value recording
@@ -179,6 +213,7 @@ setSideRoad()
 setIsSpace()
 s_road_start_time = time.time()
 
+#Run simulation
 try:
     while True:
         if sideRoad == True:
@@ -189,11 +224,11 @@ try:
         setSideRoad()
         setIsSpace()
 
-#Press Ctrl+C to generate a KeyboardInterrupt. Please press too joystick to exit
+#Press Ctrl+C to generate a KeyboardInterrupt. Please press joystick too to exit
 except KeyboardInterrupt:
-    print("Simulation exited. Connection is about to be closed.\n")
     client.disconnect()
     client.loop_stop()
+    print("Simulation exited. Connection is closed.\n")
     sys.exit(0)
 
     
