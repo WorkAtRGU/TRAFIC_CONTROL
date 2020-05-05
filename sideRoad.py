@@ -20,6 +20,7 @@ green=(0,255,0)
 red=(255,0,0)
 
 #to handle not new messages store the time of the latest
+global latestMessageTime
 latestMessageTime = time.time()
 
 #Parse and react to message
@@ -38,7 +39,8 @@ def on_message(client, userdata, msg):
 
     #If control data is for this junction and this is a new, active message, turn light
     if str(junction) == "Junction One" and publishTime > latestMessageTime and status == "active":
-        global latestMessageTime
+
+        #Store publish time as latest message time
         latestMessageTime = publishTime
         result = control["hasResult"]
         color = result["value"]

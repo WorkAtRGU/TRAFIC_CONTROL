@@ -58,19 +58,19 @@ while not client.connected_flag:           #wait in loop
     time.sleep (1)
 
 #sensor variables
-sideRoad = False;
-isSpace = False;
-mainRoad1 = False;
-mainRoad2 = False;
+sideRoad = False
+isSpace = False
+mainRoad1 = False
+mainRoad2 = False
 
 #variables for monitoring frequency of the queue becoming long over 1 min
-numOfSideRoadTrue = 0;
-s_road_max_time = 5;
-s_road_start_time = time.time();
+numOfSideRoadTrue = 0
+s_road_max_time = 5
+s_road_start_time = time.time()
 
 #variables to time limit adapted system behavior
-mod_max_time = 5;
-mod_start_time = time.time();
+mod_max_time = 5
+mod_start_time = time.time()
 
 #function to wait for joystick event and capture and return the direction of the released event
 def getJoystickDirection():
@@ -96,7 +96,7 @@ def setSideRoad():
     global sideRoad
     sideRoad = (getJoystickDirection() == "right")
 
-    #Using global variables to record side road values
+    #Using global variables to refer to global variables inside a function
     global s_road_start_time
     global s_road_max_time
     global numOfSideRoadTrue
@@ -111,6 +111,9 @@ def setSideRoad():
             numOfSideRoadTrue = 0;
             s_road_start_time = time.time()
 
+    #Use global keyword to refer to global variables
+    global mod_start_time
+    global mod_max_time
     #Checks whether side road value true counter exceeds treshhold
     print("The value you indicated is " + str(sideRoad) + "\n")
     if numOfSideRoadTrue >= 1:
@@ -130,6 +133,7 @@ def setSideRoad():
 #adapted behavior keeps side road lamps green for 1 min no matter the side road sensor
 def modified_behavior():
     setIsSpace()
+    global isSpace
     if isSpace == True:
         check_main_road()
     else:
@@ -166,6 +170,7 @@ def check_main_road():
     setMainRoad1()
 
     #If there are cars approaching the main road, turn light red
+    global mainRoad1
     if mainRoad1 == True:
         print("Publishing")
         ret = client.publish ("hub-asri84368/mainRoad1", json.dumps(generate_message("red")), retain = False, qos = 1)
@@ -173,6 +178,7 @@ def check_main_road():
     setMainRoad2()
     
     #If there are cars approaching the main road, turn light red
+    global mainRoad2
     if mainRoad2 == True:
         print("Publishing")
         ret = client.publish ("hub-asri84368/mainRoad2", json.dumps(generate_message("red")), retain = False, qos = 1)
